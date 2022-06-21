@@ -1,0 +1,185 @@
+﻿@page "/"
+@using RecyclingApp
+@inject ItemSingleton itemSingleton
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+
+<PageTitle>Index</PageTitle>
+
+<h1>Hello, @user</h1>
+
+Welcome to your new app.
+
+<SurveyPrompt Title="How is Blazor working for you?" />
+
+<style>
+    .card {
+        box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
+        transition: 0.3s;
+        width: 100%;
+        border-radius: 5px;
+    }
+
+        .card:hover {
+            box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
+        }
+
+    img {
+        border-radius: 5px 5px 0 0;
+    }
+
+    .container {
+        padding: 2px 16px;
+    }
+
+    .tags {
+        float: left;
+        padding-bottom: 1.1rem;
+        padding-right: 0.5rem
+        margin-right: 0.4rem;
+    }
+
+    hr.solid {
+        border-top: 3px solid #bbb;
+    }
+</style>
+
+@if (Items == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="container-fluid">
+                        <h1>Filters:</h1>
+
+                <div class="row">
+
+                    <div class="col-sm-3" style="padding-bottom:1.1rem">
+                    <label for="locations">Location:</label>
+                    <select @onchange="filterLocationsChange" name="locations" id="locations" style="width:100%">
+                        <option value="Any">Any</option>
+                        <option value="Swindon">Swindon</option>
+                        <option value="Oxford">Oxford</option>
+                        <option value="Spartanburg">Spartanburg</option>
+                        <option value="Munich">Munich</option>
+                    </select>
+                    </div>
+
+                     <div class="col-sm-3" style="padding-bottom:1.1rem">
+                    <label for="equipmentL">Item Category:</label>
+                    <select @onchange="filterCategoryChange" name="equipment" id="equipment" style="width:100%">
+                        <option value="Any">Any</option>
+                        <option value="Furniture">Furniture</option>
+                        <option value="Power_tools">Power tools</option>
+                        <option value="Office supplies">Office supplies</option>
+                        <option value="Computer periphery">Computer periphery</option>
+                    </select>
+                    </div>
+            </div>
+        <h1>Grid</h1>
+        <div class="row">
+            @foreach (var item in Items)
+             {
+                <div class="col-sm-4" style="padding-bottom:1.1rem">
+                    <a @onclick="() => selectItem(item)" style="text-decoration:none; color: black;" href="/fetchdata">
+                    <div class="card" style="padding-bottom:1.1rem">
+                        <img src=@item.imgs[0].imgmname alt="Avatar" style="width:100%">
+                        <div class="container">
+                            <h4><b>@item.itemname</b></h4>
+                                @if (item.itemdesc.Length > 200)
+                                {
+                                 <p>@item.itemdesc.Substring(0,200)...</p>
+                                }else{
+                                 <p>@item.itemdesc</p>
+                                }
+                            <hr class="solid">
+                            <div class="tags" style="padding-bottom:1.1rem; padding: 5px; box-shadow:1px 1px 2px purple inset;">@item.iteml</div>
+                            <div class="tags" style="padding-right: 0.5rem padding-bottom:1.1rem; padding: 5px; box-shadow:1px 1px 2px purple inset;">@item.itemc</div>
+                           
+                        </div>
+                    </div>
+                    </a>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private List<Item>? Items;
+    private string? filterLocations = "Any";
+    private string? filterCategory = "Any";
+    private string? options = "";
+    private string? user = "";
+
+    private int? index = 0;
+    //private ISessionManagement sessionManagement;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Items = await SQLUtil.getItemsAsync(options);
+
+        Console.WriteLine(Items.Count);
+        //user = "Q519935";
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        user = authState.User.Identity.Name.ToUpper().Split('\\')[1].Trim();
+
+                var auth = authState.User;
+
+        //placeholder for failed authentication 
+        if (auth.Identity.IsAuthenticated)
+        {
+            Console.WriteLine("authenticated"); }
+        else
+        {
+            Console.WriteLine("not authenticated");
+        }
+        
+    }
+    private void filterLocationsChange(ChangeEventArgs e)
+    {
+        filterLocations = (string)e.Value;
+        Console.WriteLine(filterLocations);
+        options = "";
+        filtersChanged();
+    }
+    private void filterCategoryChange(ChangeEventArgs e)
+    {
+        filterCategory = (string)e.Value;
+        Console.WriteLine(filterCategory);
+        options = "";
+        filtersChanged();
+    }
+    async private void filtersChanged()
+    {
+        if(filterLocations != "Any" || filterCategory != "Any")
+        {
+            options = " where";
+        }
+
+        if(filterLocations != "Any")
+        {
+            options += " itemc='"+filterLocations+"'";
+        }
+        if(filterCategory != "Any"){
+            if(filterLocations != "Any")
+            {
+                options += " and";
+            }
+            options += " iteml='"+filterCategory+"'";
+
+        }
+        Console.WriteLine(options);
+        Items = await SQLUtil.getItemsAsync(options);
+    }
+
+    private void selectItem(Item? e)
+    {
+        itemSingleton.item = e;
+    }
+
+    
+}

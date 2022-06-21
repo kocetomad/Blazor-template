@@ -1,0 +1,386 @@
+﻿@page "/counter"
+@using Microsoft.Win32.SafeHandles
+@using System;
+@using System.Runtime.InteropServices;
+@using System.Security;
+@using System.Security.Principal;
+@using Microsoft.Win32.SafeHandles;
+@using RecyclingApp
+@using SixLabors.ImageSharp;
+@using SixLabors.ImageSharp.Formats.Png;
+@using SixLabors.ImageSharp.Formats.Jpeg;
+@using SixLabors.ImageSharp.PixelFormats;
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@using SixLabors.ImageSharp.Processing
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+@inject IJSRuntime JsRuntime
+
+<PageTitle>Counter</PageTitle>
+
+<div class="container">
+    @if (isComplete)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <strong>Success!</strong> Your listing has been successfully posted.
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close" @onclick="CompleteAlert">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+    }
+    @if (isProcessing)
+    {
+        <div class="alert alert-primary alert-dismissible fade show" role="alert">
+            <strong>Processing...</strong>
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close" @onclick="ProcessingAlert">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+    }
+    <form>
+        <div class="row">
+            <div class="col-25">
+                <label for="fname">Item name</label>
+            </div>
+            <div class="col-75">
+                <input @bind="itemName" type="text" id="fname" name="itemName" placeholder="Item name...">
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-25">
+                <label for="subject">Item Description</label>
+            </div>
+            <div class="col-75">
+                <textarea @bind="itemDesc" id="subject" name="itemDesc" placeholder="Write something.." style="height:200px"></textarea>
+            </div>
+        </div>
+        <div class="row">
+            <div>
+                <div class="col-25">
+
+                    <label for="locations">Location:</label>
+                </div>
+                <div class="col-75">
+                    <select @bind="itemLocation" name="locations" id="locations">
+                        <option value="Swindon">Swindon</option>
+                        <option value="Oxford">Oxford</option>
+                        <option value="Spartanburg">Spartanburg</option>
+                        <option value="Munich">Munich</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div>
+                <div class="col-25">
+
+                    <label for="equipmentL">Item Category:</label>
+                </div>
+                <div class="col-75">
+                    <select @bind="itemCategory" name="equipment" id="equipment">
+                        <option value="Furniture">Furniture</option>
+                        <option value="Power_tools">Power tools</option>
+                        <option value="Office supplies">Office supplies</option>
+                        <option value="Computer periphery">Computer periphery</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-25">
+                <label for="qnum">Contact Q-Number</label>
+            </div>
+            <div class="col-75">
+                <input @bind="qNumber" type="text" id="qnum" name="qNumber" placeholder="Q-Number">
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-25">
+                <label for="email">Contact E-mail</label>
+            </div>
+            <div class="col-75">
+                <input @bind="eMail" type="text" id="email" name="eMail" placeholder="E-Mail">
+            </div>
+        </div>
+
+        <div class="row">
+
+            <div class="col-25">
+
+                <label for="img">Select image:</label>
+            </div>
+            <div class="col-75">
+
+
+                <InputFile OnChange="@LoadFiles" multiple />
+            </div>
+
+        </div>
+
+
+        <div class="row">
+            <button class="btn btn-primary" type="button" @onclick="Submit" value="Submit">Submit</button>
+        </div>
+    </form>
+</div>
+
+@code {
+
+    [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern bool LogonUser(String lpszUsername, String lpszDomain, String lpszPassword,
+        int dwLogonType, int dwLogonProvider, out SafeAccessTokenHandle phToken);
+
+    private bool isComplete = false;
+    private bool isProcessing = false;
+    private string? itemName;
+    private string? qNumber;
+    private string? eMail;
+    private string? itemDesc;
+    private string? itemLocation = "Swindon";
+    private string? itemCategory = "Furniture";
+
+    private int currentCount = 0;
+
+    private void IncrementCount()
+    {
+        currentCount++;
+    }
+
+    async private void ProcessingAlert()
+    {
+        isProcessing = false;
+    }
+
+    async private void CompleteAlert()
+    {
+        isComplete = false;
+    }
+
+    async private void Submit()
+    {
+        isProcessing = true;
+        try
+        {
+            //Validation
+            if (itemName.Length < 1 || itemDesc.Length < 1 || loadedFiles.Count < 1 || eMail.Length < 1 || qNumber.Length < 1)
+            {
+                try
+                {
+                    await JsRuntime.InvokeVoidAsync("alert", "Please fill in all fields!");
+
+                }
+                catch { }
+            }
+            else
+            {
+                try
+                {
+                    //string user = "Q519935";
+
+                    var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+                    string user = authState.User.Identity.Name.ToUpper().Split('\\')[1].Trim();
+                    var auth = authState.User;
+
+                    if (auth.Identity.IsAuthenticated)
+                    {
+                        Console.WriteLine("authenticated");
+                    }
+                    else
+                    {
+                        Console.WriteLine("not authenticated");
+                    }
+
+                    var dirName = "rec_imgs\\" + itemName;
+                    Console.WriteLine(itemName, itemDesc, dirName, itemLocation, itemCategory, qNumber, eMail, user);
+                    long listingId = await SQLUtil.insertNewItem(itemName, itemDesc, dirName, itemLocation, itemCategory, qNumber, eMail, user);
+                    //Gets buffered images and sends them as BLOBS to the DB
+                    foreach (IBrowserFile file in loadedFiles)
+                    {
+                        byte[]? byteArray = null;
+                        try
+                        {
+                            using (MemoryStream ms = new MemoryStream())
+                            {
+
+
+                                Console.WriteLine(file.ContentType);
+                                await file.OpenReadStream(850000 * 10).CopyToAsync(ms);
+                                ms.Position = 0;
+                                using (var theimage = SixLabors.ImageSharp.Image.Load(ms))
+                                {
+
+                                    int width = theimage.Width;
+                                    int height = theimage.Height;
+                                    if (width >= height)
+                                    {
+                                        double ratio = (double)width / (double)height;
+                                        int newwidth = 720;
+                                        int newheight = Convert.ToInt16(Math.Round(newwidth / ratio, 0));
+                                        Console.WriteLine(file.Size);
+                                        theimage.Mutate(x => x.Resize(newwidth, newheight));
+                                    }
+
+                                    else
+                                    {
+                                        double ratio = (double)height / (double)width;
+
+                                        int newheight = 720;
+
+                                        int newwidth = Convert.ToInt16(Math.Round(newheight / ratio, 0));
+
+                                        theimage.Mutate(x => x.Resize(newwidth, newheight));
+                                        Console.WriteLine(file.Size);
+                                    }
+
+                                    var fileBytes = ms.ToArray();
+                                    string s = "";
+
+                                    if (file.ContentType.ToLower().Contains("jpg"))
+                                    {
+                                        s = theimage.ToBase64String(JpegFormat.Instance);
+                                    }
+                                    else if (file.ContentType.ToLower().Contains("png"))
+                                    {
+                                        s = theimage.ToBase64String(PngFormat.Instance);
+                                    }
+                                    else
+                                    {
+                                        s = theimage.ToBase64String(JpegFormat.Instance);
+                                    }
+                                    Console.WriteLine(s);
+                                    SQLUtil.insertImages(s, listingId);
+
+                                }
+
+                            }
+
+                        }
+                        catch (Exception ex)
+                        {
+                            throw ex;
+                        }
+
+                    }
+
+
+                }
+                catch (Exception ex)
+                {
+                    await JsRuntime.InvokeVoidAsync("alert", ex);
+
+                }
+                finally
+                {
+                    try
+                    {
+                        isProcessing = false;
+                        isComplete = true;
+                        await JsRuntime.InvokeVoidAsync("alert", "Listing succesfully uploaded!");
+                    }
+                    catch { }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "Please fill in all fields!");
+        }
+
+    }
+    //ITEM SELECTION
+    private List<IBrowserFile> loadedFiles = new();
+    private long maxFileSize = 1024 * 128;
+    private int maxAllowedFiles = 10;
+    private bool isLoading;
+    private void LoadFiles(InputFileChangeEventArgs e)
+    {
+        isLoading = true;
+        loadedFiles.Clear();
+
+        foreach (var file in e.GetMultipleFiles(maxAllowedFiles))
+        {
+            try
+            {
+                loadedFiles.Add(file);
+                Console.WriteLine("file added:",
+                    file.Name);
+
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    file.Name, ex.Message);
+            }
+        }
+
+
+        isLoading = false;
+    }
+
+}
+
+<style>
+    /* Style inputs, select elements and textareas */
+    input[type=text], select, textarea {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+        resize: vertical;
+    }
+
+    /* Style the label to display next to the inputs */
+    label {
+        padding: 12px 12px 12px 0;
+        display: inline-block;
+    }
+
+    /* Style the submit button */
+    input[type=submit] {
+        background-color: #04AA6D;
+        color: white;
+        padding: 12px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        float: right;
+    }
+
+    /* Style the container */
+    .container {
+        border-radius: 5px;
+        background-color: #f2f2f2;
+        padding: 20px;
+    }
+
+    /* Floating column for labels: 25% width */
+    .col-25 {
+        float: left;
+        width: 25%;
+        margin-top: 6px;
+    }
+
+    /* Floating column for inputs: 75% width */
+    .col-75 {
+        float: left;
+        width: 75%;
+        margin-top: 6px;
+    }
+
+    /* Clear floats after the columns */
+    .row:after {
+        content: "";
+        display: table;
+        clear: both;
+    }
+
+    }
+</style>
+
+
+
+

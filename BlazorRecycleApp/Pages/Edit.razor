@@ -1,0 +1,314 @@
+﻿@page "/edit"
+@inject ItemSingleton itemSingleton
+@using RecyclingApp
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@using SixLabors.ImageSharp;
+@using SixLabors.ImageSharp.Formats.Png;
+@using SixLabors.ImageSharp.Formats.Jpeg;
+@using SixLabors.ImageSharp.PixelFormats;
+@using SixLabors.ImageSharp.Processing
+@inject IJSRuntime JsRuntime
+
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<style>
+* { box-sizing: border-box; }
+body { font-family: sans-serif; }
+.carousel {
+  background: #FAFAFA;
+}
+.carousel-cell {
+  width: 66%;
+  height: 400px;
+  margin-right: 10px;
+  background: #333;
+  text-align: center;
+}
+.carousel-cell-image {
+  display: block;
+  max-height: 100%;
+  margin: 0 auto;
+  max-width: 100%;
+  opacity: 0;
+  -webkit-transition: opacity 0.4s;
+          transition: opacity 0.4s;
+}
+.tags{
+    float: left;
+}
+</style>
+
+<PageTitle>Weather forecast</PageTitle>
+
+@using BlazorRecycleApp.Data
+@inject WeatherForecastService ForecastService
+@using RecyclingApp
+
+
+<div class="row">
+<div class="col-sm-4" style="padding-bottom:1.1rem">
+<br><h1 class="tags">Edit name:</h1>
+<input @bind="name" type="text" id="fname" name="fname" style="font-size: 200%;
+">
+<br>
+<select @bind="itemCategory" name="equipment" id="equipment" style="padding-bottom:1.1rem; padding: 5px; box-shadow:1px 1px 2px purple inset; ">
+                        <option value="Furniture">Furniture</option>
+                        <option value="Power_tools">Power tools</option>
+                        <option value="Office supplies">Office supplies</option>
+                        <option value="Computer periphery">Computer periphery</option>
+                    </select>
+<select @bind="itemLocation" name="locations" id="locations" style="padding-bottom:1.1rem; padding: 5px; box-shadow:1px 1px 2px purple inset; ">
+                        <option value="Swindon">Swindon</option>
+                        <option value="Oxford">Oxford</option>
+                        <option value="Spartanburg">Spartanburg</option>
+                        <option value="Munich">Munich</option>
+                    </select>
+</div>
+</div>
+<div class="row">
+<div class="col-sm-6" style="padding-bottom:1.1rem">
+@foreach (var item in @itemSingleton.item.imgs)
+            {
+                <div>
+                    <div class="card" style="padding-bottom:1.1rem">
+                        <img src=@item.imgmname alt="Avatar" style="width:100%">
+    
+                    </div>
+                </div>
+                <div style="padding-bottom:1.1rem">
+                    <button type="button" class="btn btn-danger" @onclick="() => Delete(item)">Delete</button>
+                </div>
+                
+
+            }
+            
+</div>
+<label for="img">Add more images:</label>
+<InputFile OnChange="@LoadFiles" multiple />
+           
+</div>
+<div class="row">
+<div class="col-sm-4" style="padding-bottom:1.1rem">
+
+<br><label>Edit contact description:</label>
+
+<textarea @bind="desc" id="w3review" name="w3review" rows="4" cols="44">
+  
+  </textarea>
+</div>
+
+<div class="col-sm-2" style="padding-bottom:1.1rem">
+    
+            @if (@itemSingleton.item.QNumber.Length>1 || @itemSingleton.item.Email.Length>1)
+            {
+                <p>Contact details:
+                <br><label>Edit contact Qnumber:</label>
+
+                <br><input @bind="qnum" type="text" id="fname" name="fname">
+                <br><label>Edit contact email:</label>
+
+                <br><input @bind="mail" type="text" id="fname" name="fname">
+                </p>
+            }
+            else
+            {
+                <p>Contact details:
+                <br><input type="text" id="fname" name="fname" value="QNumber">
+                <br><input type="text" id="fname" name="fname" value="email@bmwgroup.com">
+                </p>
+            }
+            
+    
+</div>
+<div class="row" style="padding-bottom:1.1rem">
+     <button class="btn btn-primary" type="button" @onclick="Submit" value="Submit">Save all changes</button>
+</div>
+</div>
+
+
+
+@code {
+    private WeatherForecast[]? forecasts;
+    private Item item;
+    private string? itemCategory = "Furniture";
+    private string? itemLocation = "Swindon";
+    private string? user = "";
+    private string? name = "";
+    private string? desc = "";
+    private string? qnum = "";
+    private string? mail = "";
+
+    async private void Submit()
+    {
+        //Validation
+        if (name.Length < 1 || desc.Length < 1 || qnum.Length < 1 || mail.Length < 1)
+        {
+            try
+            {
+                await JsRuntime.InvokeVoidAsync("alert", "Please fill in all fields!");
+
+            }
+            catch { }
+        }
+        else
+        {
+        try
+            {
+                SQLUtil.updateItem(name,desc,itemLocation,itemCategory,qnum,mail,itemSingleton.item.id);
+                //Gets buffered images and sends them as BLOBS to the DB
+                foreach (IBrowserFile file in loadedFiles)
+                {
+                    byte[]? byteArray = null;
+                    try
+                    {
+                        using (MemoryStream ms = new MemoryStream())
+                        {
+
+
+                            Console.WriteLine(file.ContentType);
+                            await file.OpenReadStream(850000*10).CopyToAsync(ms);
+                            ms.Position = 0;
+                            using (var theimage = SixLabors.ImageSharp.Image.Load(ms))
+                            {
+                             
+                                int width  = theimage.Width;
+                                int height = theimage.Height;
+                                if (width >= height)
+                                {
+                                double ratio = (double)width / (double)height;
+                                int newwidth = 720;
+                                int newheight = Convert.ToInt16(Math.Round(newwidth / ratio, 0));
+                                        Console.WriteLine(file.Size);
+                                theimage.Mutate(x => x.Resize(newwidth, newheight));
+                                }
+
+                                else
+                                {
+                                double ratio = (double)height / (double)width;
+
+                                int newheight = 720;
+
+                                int newwidth = Convert.ToInt16(Math.Round(newheight / ratio,0));
+                                
+                                theimage.Mutate(x => x.Resize(newwidth, newheight));
+                                        Console.WriteLine(file.Size);
+                                }
+
+                                var fileBytes = ms.ToArray();
+                                string s = "";
+
+                                if (file.ContentType.ToLower().Contains("jpg"))
+                                {
+                                    s = theimage.ToBase64String(JpegFormat.Instance);
+                                }
+                                else if (file.ContentType.ToLower().Contains("png"))
+                                {
+                                    s = theimage.ToBase64String(PngFormat.Instance);
+                                }
+                                else
+                                {
+                                    s = theimage.ToBase64String(JpegFormat.Instance);
+                                }
+                                    Console.WriteLine(s);
+                                    SQLUtil.insertImages(s, itemSingleton.item.id);
+
+                            }
+
+                        }
+
+                    }
+                    catch (Exception ex)
+                    {
+                        throw ex;
+                    }
+
+                }
+
+
+            }
+            catch (Exception ex)
+            {
+                await JsRuntime.InvokeVoidAsync("alert", ex);
+
+            }
+            finally
+            {
+                try
+                {
+                    await JsRuntime.InvokeVoidAsync("alert", "Listing succesfully editted!");
+
+                }
+                catch { }
+            }
+                
+        }
+
+        
+      }
+
+    
+
+    async private void Delete(BlazorRecycleApp.Image? e)
+    {
+        await Task.Run(() => {
+            Console.WriteLine("Test");
+            @itemSingleton.item.imgs.Remove(e);
+            SQLUtil.deleteImage((long)e.id);
+            InvokeAsync(() =>
+                {
+
+                    StateHasChanged();
+                });
+        });
+
+    }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        //user = authState.User.Identity.Name.ToUpper().Split('\\')[1].Trim();
+        user = "Q519935";
+        name = itemSingleton.item.itemname;
+        itemCategory = itemSingleton.item.iteml;
+        itemLocation = itemSingleton.item.itemc;
+        desc = itemSingleton.item.itemdesc;
+        qnum = itemSingleton.item.QNumber;
+        mail = itemSingleton.item.Email;
+
+    }
+
+    private List<IBrowserFile> loadedFiles = new();
+    private long maxFileSize = 1024 * 64;
+    private int maxAllowedFiles = 3;
+    private bool isLoading;
+    private void LoadFiles(InputFileChangeEventArgs e)
+    {
+        isLoading = true;
+        loadedFiles.Clear();
+
+        foreach (var file in e.GetMultipleFiles(maxAllowedFiles))
+        {
+            try
+            {
+                loadedFiles.Add(file);
+                Console.WriteLine("file added:",
+                    file.Name);
+
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    file.Name, ex.Message);
+            }
+        }
+
+
+        isLoading = false;
+    }
+
+
+}
+

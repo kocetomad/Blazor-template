@@ -1,0 +1,96 @@
+﻿@page "/fetchdata"
+@inject ItemSingleton itemSingleton
+
+<style>
+* { box-sizing: border-box; }
+body { font-family: sans-serif; }
+.carousel {
+  background: #FAFAFA;
+}
+.carousel-cell {
+  width: 66%;
+  height: 400px;
+  margin-right: 10px;
+  background: #333;
+  text-align: center;
+}
+.carousel-cell-image {
+  display: block;
+  max-height: 100%;
+  margin: 0 auto;
+  max-width: 100%;
+  opacity: 0;
+  -webkit-transition: opacity 0.4s;
+          transition: opacity 0.4s;
+}
+.tags{
+    float: left;
+}
+</style>
+
+<PageTitle>Weather forecast</PageTitle>
+
+@using BlazorRecycleApp.Data
+@inject WeatherForecastService ForecastService
+@using RecyclingApp
+
+<div class="row">
+<div class="col-sm-4" style="padding-bottom:1.1rem">
+<h1>@itemSingleton.item.itemname</h1>
+<div class="tags" style="padding-bottom:1.1rem; padding: 5px; box-shadow:1px 1px 2px purple inset; ">@itemSingleton.item.iteml</div>
+<div class="tags" style="padding-right: 0.5rem padding-bottom:1.1rem; padding: 5px; box-shadow:1px 1px 2px purple inset;">@itemSingleton.item.itemc</div>
+</div>
+</div>
+<div class="row">
+<div class="col-sm-6" style="padding-bottom:1.1rem">
+@foreach (var item in @itemSingleton.item.imgs)
+            {
+                <div style="padding-bottom:1.1rem">
+                    <div class="card" style="padding-bottom:1.1rem">
+                        <img src=@item.imgmname alt="Avatar" style="width:100%">
+    
+                    </div>
+                </div>
+            }
+</div>
+</div>
+<div class="row">
+<div class="col-sm-4" style="padding-bottom:1.1rem">
+
+<p>@itemSingleton.item.itemdesc</p>
+</div>
+
+<div class="col-sm-2" style="padding-bottom:1.1rem">
+    
+            @if (@itemSingleton.item.QNumber.Length>1 || @itemSingleton.item.Email.Length>1)
+            {
+                <p>Contact details:
+                <br>@itemSingleton.item.QNumber
+                <br>@itemSingleton.item.Email
+                </p>
+            }
+            else
+            {
+                <p>Contact details:
+                <br>QNumber
+                <br>email@bmwgroup.com
+                </p>
+            }
+            
+    
+</div>
+
+</div>
+
+
+
+@code {
+    private WeatherForecast[]? forecasts;
+    private Item item;
+
+    protected override async Task OnInitializedAsync()
+    {
+        forecasts = await ForecastService.GetForecastAsync(DateTime.Now);
+    }
+}
+
