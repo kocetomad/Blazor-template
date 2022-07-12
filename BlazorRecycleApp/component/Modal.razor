@@ -1,0 +1,82 @@
+﻿@using RecyclingApp
+
+
+<div class="modal @ModalClass" tabindex="-1" role="dialog" style="display:@ModalDisplay">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Item will be deleted</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>This item will be removed permanently, are you sure you want to proceed?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" data-dismiss="modal" @onclick="() => Delete()">Delete listing</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="() => Close()">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@if (ShowBackdrop)
+{
+    <div class="modal-backdrop fade show"></div>
+}
+
+
+@code {
+
+    //private BlazorRecycleApp.Pages.Dashboard dash;
+
+    public Guid Guid = Guid.NewGuid();
+    public string ModalDisplay = "none;";
+    public string ModalClass = "";
+    public bool ShowBackdrop = false;
+    private Item item;
+    List<Item>? itemsList;
+    private string? user_ = "";
+
+    public void Open(Item? e, List<Item>? Items,string? user)
+    {
+        ModalDisplay = "block;";
+        ModalClass = "Show";
+        ShowBackdrop = true;
+
+        item = e;
+        itemsList = Items;
+        user_ = user;
+        StateHasChanged();
+
+    }
+
+    public void Close()
+    {
+        ModalDisplay = "none";
+        ModalClass = "";
+        ShowBackdrop = false;
+        StateHasChanged();
+    }
+
+    public async void Delete()
+    {
+        ModalDisplay = "none";
+        ModalClass = "";
+        ShowBackdrop = false;
+
+        await Task.Run(() => {
+            itemsList.Remove(item);
+            SQLUtil.deleteListingImgs(item.id);
+            SQLUtil.itemDelete(item,user_);
+            InvokeAsync(() =>
+                {
+
+                    StateHasChanged();
+                });
+        });
+        //dash.rerender();
+    }
+}

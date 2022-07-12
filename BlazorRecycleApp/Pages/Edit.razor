@@ -31,6 +31,7 @@ body { font-family: sans-serif; }
   margin: 0 auto;
   max-width: 100%;
   opacity: 0;
+
   -webkit-transition: opacity 0.4s;
           transition: opacity 0.4s;
 }
@@ -45,6 +46,24 @@ body { font-family: sans-serif; }
 @inject WeatherForecastService ForecastService
 @using RecyclingApp
 
+    @if (isComplete)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert" style="position:fixed; z-index:9999;">
+            <strong>Success!</strong> Your listing has been successfully editted.
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close" @onclick="CompleteAlert">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+    }
+    @if (isProcessing)
+    {
+        <div class="alert alert-primary alert-dismissible fade show" role="alert" style="position:fixed; z-index:9999;">
+            <strong>Processing...</strong>
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close" @onclick="ProcessingAlert">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+    }
 
 <div class="row">
 <div class="col-sm-4" style="padding-bottom:1.1rem">
@@ -129,6 +148,8 @@ body { font-family: sans-serif; }
 
 
 @code {
+    private bool isComplete = false;
+    private bool isProcessing = false;
     private WeatherForecast[]? forecasts;
     private Item item;
     private string? itemCategory = "Furniture";
@@ -139,8 +160,19 @@ body { font-family: sans-serif; }
     private string? qnum = "";
     private string? mail = "";
 
+    async private void ProcessingAlert()
+    {
+        isProcessing = false;
+    }
+
+    async private void CompleteAlert()
+    {
+        isComplete = false;
+    }
+
     async private void Submit()
     {
+        isProcessing = true;
         //Validation
         if (name.Length < 1 || desc.Length < 1 || qnum.Length < 1 || mail.Length < 1)
         {
@@ -236,7 +268,19 @@ body { font-family: sans-serif; }
             {
                 try
                 {
-                    await JsRuntime.InvokeVoidAsync("alert", "Listing succesfully editted!");
+                    //await JsRuntime.InvokeVoidAsync("alert", "Listing succesfully editted!");
+                    isProcessing = false;
+                            InvokeAsync(() =>
+                            {
+
+                                StateHasChanged();
+                            });
+                            isComplete = true;
+                            InvokeAsync(() =>
+                            {
+
+                                StateHasChanged();
+                            });
 
                 }
                 catch { }

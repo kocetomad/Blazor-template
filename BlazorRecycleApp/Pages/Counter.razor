@@ -19,8 +19,7 @@
 
 <PageTitle>Counter</PageTitle>
 
-<div class="container">
-    @if (isComplete)
+@if (isComplete)
     {
         <div class="alert alert-success alert-dismissible fade show" role="alert">
             <strong>Success!</strong> Your listing has been successfully posted.
@@ -38,6 +37,9 @@
             </button>
         </div>
     }
+
+<div class="container">
+    
     <form>
         <div class="row">
             <div class="col-25">
@@ -122,6 +124,8 @@
 
         <div class="row">
             <button class="btn btn-primary" type="button" @onclick="Submit" value="Submit">Submit</button>
+            <p>Loading: @isLoading.ToString()</p>
+            <p>Debugerr: @debugerr.ToString()</p>
         </div>
     </form>
 </div>
@@ -160,10 +164,19 @@
 
     async private void Submit()
     {
+        System.IO.StreamWriter sw = new System.IO.StreamWriter("ConsoleOutput.txt");
+        sw.AutoFlush = true;
+        Console.SetOut(sw);
+        Console.WriteLine("file start");
+
+        var point = 0;
         isProcessing = true;
+
+        
+
+
         try
         {
-            //Validation
             if (itemName.Length < 1 || itemDesc.Length < 1 || loadedFiles.Count < 1 || eMail.Length < 1 || qNumber.Length < 1)
             {
                 try
@@ -182,7 +195,7 @@
                     var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
                     string user = authState.User.Identity.Name.ToUpper().Split('\\')[1].Trim();
                     var auth = authState.User;
-
+                    point++;//1
                     if (auth.Identity.IsAuthenticated)
                     {
                         Console.WriteLine("authenticated");
@@ -195,6 +208,7 @@
                     var dirName = "rec_imgs\\" + itemName;
                     Console.WriteLine(itemName, itemDesc, dirName, itemLocation, itemCategory, qNumber, eMail, user);
                     long listingId = await SQLUtil.insertNewItem(itemName, itemDesc, dirName, itemLocation, itemCategory, qNumber, eMail, user);
+                    point++;//2
                     //Gets buffered images and sends them as BLOBS to the DB
                     foreach (IBrowserFile file in loadedFiles)
                     {
@@ -206,7 +220,7 @@
 
 
                                 Console.WriteLine(file.ContentType);
-                                await file.OpenReadStream(850000 * 10).CopyToAsync(ms);
+                                await file.OpenReadStream(850000 * 100).CopyToAsync(ms);
                                 ms.Position = 0;
                                 using (var theimage = SixLabors.ImageSharp.Image.Load(ms))
                                 {
@@ -233,7 +247,7 @@
                                         theimage.Mutate(x => x.Resize(newwidth, newheight));
                                         Console.WriteLine(file.Size);
                                     }
-
+                                     
                                     var fileBytes = ms.ToArray();
                                     string s = "";
 
@@ -259,10 +273,13 @@
                         }
                         catch (Exception ex)
                         {
+                            debugerr = ex.ToString();
+                            Console.WriteLine(ex);
                             throw ex;
                         }
 
                     }
+                    point++;//3
 
 
                 }
@@ -275,9 +292,22 @@
                 {
                     try
                     {
-                        isProcessing = false;
-                        isComplete = true;
-                        await JsRuntime.InvokeVoidAsync("alert", "Listing succesfully uploaded!");
+                        await Task.Run(() =>
+                        {
+                            isProcessing = false;
+                            InvokeAsync(() =>
+                            {
+
+                                StateHasChanged();
+                            });
+                            isComplete = true;
+                            InvokeAsync(() =>
+                            {
+
+                                StateHasChanged();
+                            });
+                            //await JsRuntime.InvokeVoidAsync("alert", "Listing succesfully uploaded!");
+                        });
                     }
                     catch { }
                 }
@@ -285,15 +315,16 @@
         }
         catch (Exception ex)
         {
-            await JsRuntime.InvokeVoidAsync("alert", "Please fill in all fields!");
+            await JsRuntime.InvokeVoidAsync("alert","Loaded files :" + loadedFiles.Count + "point:" +point+ "_" +ex.ToString());
         }
 
     }
     //ITEM SELECTION
     private List<IBrowserFile> loadedFiles = new();
-    private long maxFileSize = 1024 * 128;
+    private long maxFileSize = 1024 * 1000;
     private int maxAllowedFiles = 10;
-    private bool isLoading;
+    private bool isLoading = false;
+    private string debugerr= "";
     private void LoadFiles(InputFileChangeEventArgs e)
     {
         isLoading = true;
