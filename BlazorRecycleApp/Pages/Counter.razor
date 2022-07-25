@@ -13,6 +13,7 @@
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Components.Authorization
 @using SixLabors.ImageSharp.Processing
+@using System.Diagnostics
 @inject AuthenticationStateProvider AuthenticationStateProvider
 
 @inject IJSRuntime JsRuntime
@@ -20,26 +21,26 @@
 <PageTitle>Counter</PageTitle>
 
 @if (isComplete)
-    {
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
-            <strong>Success!</strong> Your listing has been successfully posted.
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close" @onclick="CompleteAlert">
-                <span aria-hidden="true">&times;</span>
-            </button>
-        </div>
-    }
-    @if (isProcessing)
-    {
-        <div class="alert alert-primary alert-dismissible fade show" role="alert">
-            <strong>Processing...</strong>
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close" @onclick="ProcessingAlert">
-                <span aria-hidden="true">&times;</span>
-            </button>
-        </div>
-    }
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <strong>Success!</strong> Your listing has been successfully posted.
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close" @onclick="CompleteAlert">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+}
+@if (isProcessing)
+{
+    <div class="alert alert-primary alert-dismissible fade show" role="alert">
+        <strong>Processing...</strong>
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close" @onclick="ProcessingAlert">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+}
 
 <div class="container">
-    
+
     <form>
         <div class="row">
             <div class="col-25">
@@ -144,6 +145,8 @@
     private string? itemDesc;
     private string? itemLocation = "Swindon";
     private string? itemCategory = "Furniture";
+    private string? user = "";
+
 
     private int currentCount = 0;
 
@@ -171,9 +174,7 @@
 
         var point = 0;
         isProcessing = true;
-
-        
-
+        long listingId = -10;
 
         try
         {
@@ -191,10 +192,14 @@
                 try
                 {
                     //string user = "Q519935";
+                    Stopwatch stopwatch = Stopwatch.StartNew();
 
                     var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-                    string user = authState.User.Identity.Name.ToUpper().Split('\\')[1].Trim();
+                    user = authState.User.Identity.Name.ToUpper().Split('\\')[1].Trim();
                     var auth = authState.User;
+                    stopwatch.Stop();
+                    Console.WriteLine("authentication time: " + stopwatch.ElapsedMilliseconds);
+
                     point++;//1
                     if (auth.Identity.IsAuthenticated)
                     {
@@ -204,11 +209,14 @@
                     {
                         Console.WriteLine("not authenticated");
                     }
-
+                    stopwatch.Restart();
                     var dirName = "rec_imgs\\" + itemName;
                     Console.WriteLine(itemName, itemDesc, dirName, itemLocation, itemCategory, qNumber, eMail, user);
-                    long listingId = await SQLUtil.insertNewItem(itemName, itemDesc, dirName, itemLocation, itemCategory, qNumber, eMail, user);
+                    listingId = await SQLUtil.insertNewItem(itemName, itemDesc, dirName, itemLocation, itemCategory, qNumber, eMail, user);
                     point++;//2
+                    stopwatch.Stop();
+                    Console.WriteLine("metadata insert: " + stopwatch.ElapsedMilliseconds);
+
                     //Gets buffered images and sends them as BLOBS to the DB
                     foreach (IBrowserFile file in loadedFiles)
                     {
@@ -220,8 +228,14 @@
 
 
                                 Console.WriteLine(file.ContentType);
-                                await file.OpenReadStream(850000 * 100).CopyToAsync(ms);
+                                stopwatch.Restart();
+
+                                await file.OpenReadStream(System.Convert.ToInt32(file.Size * 1.05)).CopyToAsync(ms);
                                 ms.Position = 0;
+                                stopwatch.Stop();
+                                Console.WriteLine("Open read stream for file: " + stopwatch.ElapsedMilliseconds);
+
+                                stopwatch.Restart();
                                 using (var theimage = SixLabors.ImageSharp.Image.Load(ms))
                                 {
 
@@ -247,7 +261,10 @@
                                         theimage.Mutate(x => x.Resize(newwidth, newheight));
                                         Console.WriteLine(file.Size);
                                     }
-                                     
+                                    stopwatch.Stop();
+                                    Console.WriteLine("Image resize: " + stopwatch.ElapsedMilliseconds);
+                                    stopwatch.Restart();
+
                                     var fileBytes = ms.ToArray();
                                     string s = "";
 
@@ -264,8 +281,12 @@
                                         s = theimage.ToBase64String(JpegFormat.Instance);
                                     }
                                     Console.WriteLine(s);
+                                    stopwatch.Stop();
+                                    Console.WriteLine("Image to blob" + stopwatch.ElapsedMilliseconds);
+                                    stopwatch.Restart();
                                     SQLUtil.insertImages(s, listingId);
-
+                                    stopwatch.Stop();
+                                    Console.WriteLine("blob DB insert" + stopwatch.ElapsedMilliseconds);
                                 }
 
                             }
@@ -277,19 +298,43 @@
                             Console.WriteLine(ex);
                             throw ex;
                         }
-
                     }
                     point++;//3
-
-
                 }
                 catch (Exception ex)
                 {
                     await JsRuntime.InvokeVoidAsync("alert", ex);
-
                 }
                 finally
                 {
+                    string upn = "PM99893";
+                    string pwd = "bmw0xford";
+
+                    //string upn64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(upn));
+                    //string pwd64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(pwd));
+
+                    NetworkCredential networkCredential = new NetworkCredential(upn, pwd, "MUC");
+
+                    SmtpClient client = new SmtpClient("mail.bmwgroup.net",587);
+                    client.EnableSsl = true;
+                    client.UseDefaultCredentials = false;
+                    client.Credentials = networkCredential;
+                    
+                    var result = new InternalQuery().QueryByUserName(user);
+                    string mail = result.emailaddress;
+
+                    MailAddress from = new MailAddress("recycleit@bmwgroup.com");
+                    MailAddress to = new MailAddress(mail);
+                    MailMessage message = new MailMessage(from, to);
+                    var time = DateTime.Now.ToString("yyyy-MM-dd h:mm:ss tt"); ;
+                    message.Body = "Your listing, '"+itemName+"' has just ("+time+") been successfully uploaded,\n you can view and eddit it in your dashboard tab http://sw340947.bmwgroup.net:99/counter";
+                    message.Body += Environment.NewLine ;
+                    message.Subject = "Your item has been successfully listed";
+                    
+                    message.To.Add(eMail); 
+
+                    client.Send(message);
+
                     try
                     {
                         await Task.Run(() =>
@@ -297,13 +342,11 @@
                             isProcessing = false;
                             InvokeAsync(() =>
                             {
-
                                 StateHasChanged();
                             });
                             isComplete = true;
                             InvokeAsync(() =>
                             {
-
                                 StateHasChanged();
                             });
                             //await JsRuntime.InvokeVoidAsync("alert", "Listing succesfully uploaded!");
@@ -315,7 +358,7 @@
         }
         catch (Exception ex)
         {
-            await JsRuntime.InvokeVoidAsync("alert","Loaded files :" + loadedFiles.Count + "point:" +point+ "_" +ex.ToString());
+            await JsRuntime.InvokeVoidAsync("alert", "Loaded files :" + loadedFiles.Count + "point:" + point + "_" + ex.ToString());
         }
 
     }
@@ -324,7 +367,7 @@
     private long maxFileSize = 1024 * 1000;
     private int maxAllowedFiles = 10;
     private bool isLoading = false;
-    private string debugerr= "";
+    private string debugerr = "";
     private void LoadFiles(InputFileChangeEventArgs e)
     {
         isLoading = true;

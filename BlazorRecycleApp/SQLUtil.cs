@@ -10,13 +10,13 @@ namespace RecyclingApp
         public static string connectionString { get; set; } =
             "Host=recycle-it-db-2.postgres.database.azure.com;Port=5432;Username=dbadmin@recycle-it-db-2;Password=dbpass123!;Database=postgres";
         public static string insertUserDetails { get; set; } =
-        "insert into rec_item_data (itemname, itemdesc,itemimg_location, itemc, iteml,contact_qnumber,contact_email,posted_by) values(@n,@d,@l,@c,@k,@Q,@E,@b) RETURNING uniqueid;";
+        "insert into rec_item_data (itemname, itemdesc,itemimg_location, itemc, iteml,contact_qnumber,contact_email,posted_by,is_complete) values(@n,@d,@l,@c,@k,@Q,@E,@b,'no') RETURNING uniqueid;";
         public static string getItemsQuery { get; set; } =
-        "select * from rec_item_data";
+        "select * from rec_item_data where is_complete = 'yes'";
         public static string itemDeleteQuery { get; set; } =
         "delete from rec_item_data where itemc = @l and iteml = @c and posted_by = @q and itemname = @N and contact_email = @E";
         public static string getUserItemsQuery { get; set; } =
-        "select * from rec_item_data where posted_by = @U";
+        "select * from rec_item_data where posted_by = @U and is_complete = 'yes'";
         public static string updateItemQuery { get; set; } =
         "update rec_item_data set itemname = @n, itemdesc = @d, itemc = @c, iteml = @l, contact_qnumber = @q, contact_email = @e where uniqueid = @I::INTEGER";
         public static string insertBlob { get; set; } =
@@ -27,6 +27,8 @@ namespace RecyclingApp
         "delete from img_table where img_id = @I";
         public static string deleteImgbyListingID { get; set; } =
         "delete from img_table where listing_id = @I";
+        public static string updateIsComplete { get; set; } =
+        "update public.rec_item_data SET is_complete = 'yes' WHERE uniqueid = @I;";
 
         public static async Task<long> insertNewItem(string name, string desc, string dir, string cat, string loc, string Q, string E, string b)
         {
@@ -261,6 +263,28 @@ namespace RecyclingApp
                 {
                     con.Open();
                     var cmd = new NpgsqlCommand(deleteImgbyListingID, con);
+                    cmd.Parameters.AddWithValue("I", id);
+                    cmd.ExecuteNonQuery();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                }
+                finally
+                {
+                    con.Close();
+                }
+            }
+        }
+
+        public static void updateComplete(long id)
+        {
+            using (var con = new NpgsqlConnection(connectionString))
+            {
+                try
+                {
+                    con.Open();
+                    var cmd = new NpgsqlCommand(updateIsComplete, con);
                     cmd.Parameters.AddWithValue("I", id);
                     cmd.ExecuteNonQuery();
                 }

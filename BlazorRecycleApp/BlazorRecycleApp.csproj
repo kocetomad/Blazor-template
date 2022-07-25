@@ -8,11 +8,13 @@
 
   <ItemGroup>
     <PackageReference Include="Blazored.Modal" Version="6.0.1" />
+    <PackageReference Include="BMWLDAPQueryCore" Version="1.0.1" />
     <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="6.0.3" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="6.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="6.0.0" />
     <PackageReference Include="Npgsql" Version="6.0.3" />
-    <PackageReference Include="SixLabors.ImageSharp" Version="2.1.2" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="2.1.3" />
+    <PackageReference Include="StopWatch" Version="1.0.6" />
   </ItemGroup>
 
   <ItemGroup>
