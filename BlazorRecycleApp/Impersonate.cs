@@ -20,8 +20,8 @@ public class ImpersonationDemo
     {
        
         string domainName = "MUC";
-        string userName = "QQSP34E";
-        string userPassword = "gurge1te";
+        string userName = "{USR}";
+        string userPassword = "{PASS}";
         const int LOGON32_PROVIDER_DEFAULT = 0;
         const int LOGON32_LOGON_INTERACTIVE = 2;
         SafeAccessTokenHandle safeAccessTokenHandle;

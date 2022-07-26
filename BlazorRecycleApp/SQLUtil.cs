@@ -8,7 +8,7 @@ namespace RecyclingApp
     public class SQLUtil
     {
         public static string connectionString { get; set; } =
-            "Host=recycle-it-db-2.postgres.database.azure.com;Port=5432;Username=dbadmin@recycle-it-db-2;Password=dbpass123!;Database=postgres";
+        "Host={HOST};Port=5432;Username={USR};Password={PASS};Database={DB}";
         public static string insertUserDetails { get; set; } =
         "insert into rec_item_data (itemname, itemdesc,itemimg_location, itemc, iteml,contact_qnumber,contact_email,posted_by,is_complete) values(@n,@d,@l,@c,@k,@Q,@E,@b,'no') RETURNING uniqueid;";
         public static string getItemsQuery { get; set; } =
